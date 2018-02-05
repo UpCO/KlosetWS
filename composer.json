@@ -1,0 +1,15 @@
+{
+	"require":
+	{
+		"slim/slim": "3.*",
+		"ramsey/uuid": "3.*",
+		"moontoast/math": "1.*"
+	},
+	"autoload":
+	{
+		"psr-4":
+		{
+			"controllers\\": "controllers"
+		}
+	}
+}
