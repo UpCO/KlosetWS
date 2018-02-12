@@ -23,13 +23,7 @@ function verifyRequiredParams($required_fields, $request, $response) {
     $error = false;
     $error_fields = "";
     $request_params = array();
-    $request_params = $_REQUEST;
-
-    // Handling PUT request params
-    if ($_SERVER['REQUEST_METHOD'] == 'PUT') {
-        //parse_str($request->getParsedBody(), $request_params);
-        $request_params = $request->getParsedBody();
-    }
+    $request_params = $request->getParsedBody();
 
     foreach ($required_fields as $field) {
         if (!isset($request_params[$field]) || strlen(trim($request_params[$field])) <= 0) {
@@ -44,6 +38,7 @@ function verifyRequiredParams($required_fields, $request, $response) {
         $res = array();
         $res["error"] = true;
         $res["message"] = 'Required field(s) ' . substr($error_fields, 0, -2) . ' is missing or empty';
+        $res["parameters"] = array();
         return echoResponse(400, $res, $response);
     }
 
@@ -60,6 +55,7 @@ function validateEmail($email, $response) {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $res["error"] = true;
         $res["message"] = 'Email address is not valid';
+        $res["parameters"] = array();
         return echoResponse(400, $res, $response);
     }
 
@@ -157,14 +153,17 @@ $app->post('/register', function (Request $request, Response $response, $args) {
     if ($ret == USER_CREATED_SUCCESSFULLY) {
         $res["error"] = false;
         $res["message"] = "You are successfully registered";
+        $res["parameters"] = array();
         return echoResponse(201, $res, $response);
     } else if ($ret == USER_CREATE_FAILED) {
         $res["error"] = true;
         $res["message"] = "Oops! An error occurred while registering";
+        $res["parameters"] = array();
         return echoResponse(200, $res, $response);
     } else if ($ret == USER_ALREADY_EXISTED) {
         $res["error"] = true;
         $res["message"] = "Sorry, this email already existed";
+        $res["parameters"] = array();
         return echoResponse(200, $res, $response);
     }
 });
@@ -196,6 +195,8 @@ $app->post('/login', function (Request $request, Response $response, $args) {
 
         if ($user != NULL) {
             $res["error"] = false;
+            $res["message"] = "You are successfully logged";
+            $res["parameters"] = array();
             $res["id"] = $user["id"];
             $res["uid"] = $user["uid"];
             $res["name"] = $user["name"];
@@ -210,11 +211,13 @@ $app->post('/login', function (Request $request, Response $response, $args) {
             // unknown error occurred
             $res["error"] = true;
             $res["message"] = "An error occurred. Please try again";
+            $res["parameters"] = array();
         }
     } else {
         // user credentials are wrong
         $res["error"] = true;
         $res["message"] = "Login failed. Incorrect credentials";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
@@ -255,10 +258,14 @@ $app->post('/posts', function (Request $request, Response $response, $args) {
     if ($post_uid != NULL) {
         $res["error"] = false;
         $res["message"] = "Post created successfully";
-        $res["post_uid"] = $post_uid;
+        $res["parameters"] = array();
+
+        $tmp["uid"] = $post_uid;
+        array_push($res["parameters"], $tmp);
     } else {
         $res["error"] = true;
         $res["message"] = "Failed to create post. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(201, $res, $response);
@@ -283,7 +290,8 @@ $app->get('/posts', function (Request $request, Response $response, $args) {
     $ret = $db->getAllUserPosts($user_uid);
 
     $res["error"] = false;
-    $res["posts"] = array();
+    $res["message"] = "Posts found successfully";
+    $res["parameters"] = array();
 
     // looping through result and preparing posts array
     while ($post = $ret->fetch_assoc()) {
@@ -297,7 +305,7 @@ $app->get('/posts', function (Request $request, Response $response, $args) {
         $tmp["num_shares"] = $post["num_shares"];   
         $tmp["updated_at"] = $post["updated_at"];   
         $tmp["created_at"] = $post["created_at"];
-        array_push($res["posts"], $tmp);
+        array_push($res["parameters"], $tmp);
     }
 
     return echoResponse(200, $res, $response);
@@ -325,19 +333,25 @@ $app->get('/posts/{uid}', function (Request $request, Response $response, $args)
 
     if ($ret != NULL) {
         $res["error"] = false;
-        $res["id"] = $ret["id"];    
-        $res["uid"] = $ret["uid"];  
-        $res["content"] = $ret["content"];  
-        $res["privacy"] = $ret["privacy"];   
-        $res["num_likes"] = $ret["num_likes"];  
-        $res["num_comments"] = $ret["num_comments"];    
-        $res["num_shares"] = $ret["num_shares"];    
-        $res["updated_at"] = $ret["updated_at"];    
-        $res["created_at"] = $ret["created_at"];
+        $res["message"] = "Post found successfully";
+        $res["parameters"] = array();
+
+        $tmp["id"] = $ret["id"];    
+        $tmp["uid"] = $ret["uid"];  
+        $tmp["content"] = $ret["content"];  
+        $tmp["privacy"] = $ret["privacy"];   
+        $tmp["num_likes"] = $ret["num_likes"];  
+        $tmp["num_comments"] = $ret["num_comments"];    
+        $tmp["num_shares"] = $ret["num_shares"];    
+        $tmp["updated_at"] = $ret["updated_at"];    
+        $tmp["created_at"] = $ret["created_at"];
+        array_push($res["parameters"], $tmp);
+
         return echoResponse(200, $res, $response);
     } else {
         $res["error"] = true;
         $res["message"] = "The requested resource doesn't exists";
+        $res["parameters"] = array();
         return echoResponse(404, $res, $response);
     }
 });
@@ -379,10 +393,12 @@ $app->put('/posts/{uid}', function (Request $request, Response $response, $args)
         // post updated successfully
         $res["error"] = false;
         $res["message"] = "Post updated successfully";
+        $res["parameters"] = array();
     } else {
         // post failed to update
         $res["error"] = true;
         $res["message"] = "Failed to update post. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
@@ -411,10 +427,12 @@ $app->delete('/posts/{uid}', function (Request $request, Response $response, $ar
         // post deleted successfully
         $res["error"] = false;
         $res["message"] = "Post deleted successfully";
+        $res["parameters"] = array();
     } else {
         // post failed to delete
         $res["error"] = true;
         $res["message"] = "Failed to delete post. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
@@ -456,10 +474,14 @@ $app->post('/looks', function (Request $request, Response $response, $args) {
     if ($look_uid != NULL) {
     	$res["error"] = false;
     	$res["message"] = "Look created successfully";
-    	$res["look_uid"] = $look_uid;
+        $res["parameters"] = array();
+
+    	$tmp["uid"] = $look_uid;
+        array_push($res["parameters"], $tmp);
     } else {
     	$res["error"] = true;
     	$res["message"] = "Failed to create look. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(201, $res, $response);
@@ -591,10 +613,12 @@ $app->put('/looks/{uid}', function (Request $request, Response $response, $args)
     	// look updated successfully
     	$res["error"] = false;
     	$res["message"] = "Look updated successfully";
+        $res["parameters"] = array();
     } else {
     	// look failed to update
     	$res["error"] = true;
     	$res["message"] = "Failed to update look. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
@@ -623,10 +647,12 @@ $app->delete('/looks/{uid}', function (Request $request, Response $response, $ar
     	// look deleted successfully
     	$res["error"] = false;
     	$res["message"] = "Look deleted successfully";
+        $res["parameters"] = array();
     } else {
     	// look failed to delete
     	$res["error"] = true;
     	$res["message"] = "Failed to delete look. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
