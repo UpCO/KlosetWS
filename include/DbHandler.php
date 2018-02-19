@@ -665,7 +665,7 @@ class DbHandler {
 		return $result;
 	}
 
-	/* --- 'look_items table methods --- */
+	/* --- 'look_items' table methods --- */
 
 	/**
 	 *	Function to assign an item to a look
@@ -680,7 +680,7 @@ class DbHandler {
 		return $result;
 	}
 
-	/* --- 'look_comments table methods --- */
+	/* --- 'look_comments' table methods --- */
 
 	/**
 	 *	Function to assign a comment to a look
@@ -695,7 +695,7 @@ class DbHandler {
 		return $result;
 	}
 
-	/* --- 'post_comments table methods --- */
+	/* --- 'post_comments' table methods --- */
 
 	/**
 	 *	Function to assign a comment to a post

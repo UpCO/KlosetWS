@@ -516,12 +516,28 @@ $app->get('/looks', function (Request $request, Response $response, $args) {
     	$tmp["uid"] = $look["uid"];	
     	$tmp["title"] = $look["title"];	
     	$tmp["privacy"] = $look["privacy"];	
-    	$tmp["num_items"] = $look["num_items"];	
-    	$tmp["num_likes"] = $look["num_likes"];	
-    	$tmp["num_comments"] = $look["num_comments"];	
-    	$tmp["num_shares"] = $look["num_shares"];	
-    	$tmp["updated_at"] = $look["updated_at"];	
+        $tmp["items"] = array();
+    	$tmp["num_items"] = $look["num_items"];
+    	$tmp["num_likes"] = $look["num_likes"];
+    	$tmp["num_comments"] = $look["num_comments"];
+    	$tmp["num_shares"] = $look["num_shares"];
+    	$tmp["updated_at"] = $look["updated_at"];
     	$tmp["created_at"] = $look["created_at"];
+
+        $r = $db->getAllLookItems($look["uid"]);
+
+        // looping through result and preparing items array
+        while ($item = $r->fetch_assoc()) {
+            $tmp_ = array();
+            $tmp_["id"] = $item["id"];   
+            $tmp_["uid"] = $item["uid"]; 
+            $tmp_["title"] = $item["title"]; 
+            $tmp_["images"] = $item["images"];  
+            $tmp_["updated_at"] = $item["updated_at"];   
+            $tmp_["created_at"] = $item["created_at"];
+            array_push($tmp["items"], $tmp_);
+        }
+
     	array_push($res["parameters"], $tmp);
     }
 
@@ -660,27 +676,27 @@ $app->delete('/looks/{uid}', function (Request $request, Response $response, $ar
 
 /**
  *  Creating new item in db
- *  url - /items
+ *  url - /items/{look_uid}
  *  method - POST
- *  params - look_uid, title, images
+ *  params - title, images
  */
-$app->post('/items', function (Request $request, Response $response, $args) {
+$app->post('/items/{look_uid}', function (Request $request, Response $response, $args) {
     $ret = authenticate($response);
     if ($ret != NULL) {
         return $ret;
     }
 
     // check for required params
-    $ret = verifyRequiredParams(array('look_uid', 'title', 'images'), $request, $response);
+    $ret = verifyRequiredParams(array('title', 'images'), $request, $response);
     if ($ret != NULL) {
         return $ret;
     }
 
     // reading post params
-    $look_uid = $request->getParam('look_uid');
     $title = $request->getParam('title');
     $images = $request->getParam('images');
 
+    $look_uid = $args["look_uid"];
     $res = array();
     $db = new DbHandler();
 
@@ -690,20 +706,24 @@ $app->post('/items', function (Request $request, Response $response, $args) {
     if ($item_uid != NULL) {
         $res["error"] = false;
         $res["message"] = "Item created successfully";
-        $res["item_uid"] = $item_uid;
+        $res["parameters"] = array();
+
+        $tmp = array();
+        $tmp["uid"] = $item_uid;
+        array_push($res["parameters"], $tmp);
     } else {
         $res["error"] = true;
         $res["message"] = "Failed to create item. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(201, $res, $response);
 });
 
 /**
- *  Listing all items of particular look
- *  url - /items
+ *  Listing all items of particular user
+ *  url - /items/
  *  method - GET
- *  params - look_uid
  */
 $app->get('/items', function (Request $request, Response $response, $args) {
     $ret = authenticate($response);
@@ -711,15 +731,51 @@ $app->get('/items', function (Request $request, Response $response, $args) {
         return $ret;
     }
 
-    // check for required params
-    $ret = verifyRequiredParams(array('look_uid'), $request, $response);
+    global $user_uid;
+    $res = array();
+    $db = new DbHandler();
+
+    // fetching all user looks
+    $ret = $db->getAllUserLooks($user_uid);
+
+    $res["error"] = false;
+    $res["message"] = "Items found successfully";
+    $res["parameters"] = array();
+
+    // looping through result
+    while ($look = $ret->fetch_assoc()) {
+        // fetching all look items
+        $t = $db->getAllLookItems($look["uid"]);
+
+        // looping through result and preparing items array
+        while ($item = $t->fetch_assoc()) {
+            $tmp = array();
+            $tmp["look_uid"] = $look["uid"];
+            $tmp["id"] = $item["id"];   
+            $tmp["uid"] = $item["uid"]; 
+            $tmp["title"] = $item["title"]; 
+            $tmp["images"] = $item["images"];  
+            $tmp["updated_at"] = $item["updated_at"];   
+            $tmp["created_at"] = $item["created_at"];
+            array_push($res["parameters"], $tmp);
+        }
+    }
+
+    return echoResponse(200, $res, $response);
+});
+
+/**
+ *  Listing all items of particular look
+ *  url - /items/{look_uid}
+ *  method - GET
+ */
+$app->get('/items/{look_uid}', function (Request $request, Response $response, $args) {
+    $ret = authenticate($response);
     if ($ret != NULL) {
         return $ret;
     }
 
-    // reading post params
-    $look_uid = $request->getParam('look_uid');
-
+    $look_uid = $args["look_uid"];
     $res = array();
     $db = new DbHandler();
 
@@ -727,7 +783,8 @@ $app->get('/items', function (Request $request, Response $response, $args) {
     $ret = $db->getAllLookItems($look_uid);
 
     $res["error"] = false;
-    $res["items"] = array();
+    $res["message"] = "Items found successfully";
+    $res["parameters"] = array();
 
     // looping through result and preparing items array
     while ($item = $ret->fetch_assoc()) {
@@ -738,7 +795,7 @@ $app->get('/items', function (Request $request, Response $response, $args) {
         $tmp["images"] = $item["images"];  
         $tmp["updated_at"] = $item["updated_at"];   
         $tmp["created_at"] = $item["created_at"];
-        array_push($res["items"], $tmp);
+        array_push($res["parameters"], $tmp);
     }
 
     return echoResponse(200, $res, $response);
@@ -746,26 +803,17 @@ $app->get('/items', function (Request $request, Response $response, $args) {
 
 /**
  *  Listing single item of particular look
- *  url - /items/{uid}
+ *  url - /items/{look_uid}/{uid}
  *  method - GET
- *  params - look_uid
  *  Will return 404 if the item doesn't belongs to look
  */
-$app->get('/items/{uid}', function (Request $request, Response $response, $args) {
+$app->get('/items/{look_uid}/{uid}', function (Request $request, Response $response, $args) {
     $ret = authenticate($response);
     if ($ret != NULL) {
         return $ret;
     }
 
-    // check for required params
-    $ret = verifyRequiredParams(array('look_uid'), $request, $response);
-    if ($ret != NULL) {
-        return $ret;
-    }
-
-    // reading post params
-    $look_uid = $request->getParam('look_uid');
-
+    $look_uid = $args["look_uid"];
     $item_uid = $args["uid"];
     $res = array();
     $db = new DbHandler();
@@ -775,43 +823,50 @@ $app->get('/items/{uid}', function (Request $request, Response $response, $args)
 
     if ($ret != NULL) {
         $res["error"] = false;
-        $res["id"] = $ret["id"];    
-        $res["uid"] = $ret["uid"];  
-        $res["title"] = $ret["title"];  
-        $res["images"] = $ret["images"];  
-        $res["updated_at"] = $ret["updated_at"];    
-        $res["created_at"] = $ret["created_at"];
+        $res["message"] = "Item found successfully";
+        $res["parameters"] = array();
+
+        $tmp = array();
+        $tmp["id"] = $ret["id"];    
+        $tmp["uid"] = $ret["uid"];  
+        $tmp["title"] = $ret["title"];  
+        $tmp["images"] = $ret["images"];  
+        $tmp["updated_at"] = $ret["updated_at"];    
+        $tmp["created_at"] = $ret["created_at"];
+        array_push($res["parameters"], $tmp);
+
         return echoResponse(200, $res, $response);
     } else {
         $res["error"] = true;
         $res["message"] = "The requested resource doesn't exists";
+        $res["parameters"] = array();
         return echoResponse(404, $res, $response);
     }
 });
 
 /**
  *  Updating existing item
- *  url - /items/{uid}
+ *  url - /items/{look_uid}/{uid}
  *  method - PUT
- *  params - look_uid, title, images
+ *  params - title, images
  */
-$app->put('/items/{uid}', function (Request $request, Response $response, $args) {
+$app->put('/items/{look_uid}/{uid}', function (Request $request, Response $response, $args) {
     $ret = authenticate($response);
     if ($ret != NULL) {
         return $ret;
     }
 
     // check for required params
-    $ret = verifyRequiredParams(array('look_uid', 'title', 'images'), $request, $response);
+    $ret = verifyRequiredParams(array('title', 'images'), $request, $response);
     if ($ret != NULL) {
         return $ret;
     }
 
     // reading post params
-    $look_uid = $request->getParam('look_uid');
     $title = $request->getParam('title');
     $images = $request->getParam('images');
 
+    $look_uid = $args["look_uid"];
     $item_uid = $args["uid"];
     $res = array();
     $db = new DbHandler();
@@ -823,10 +878,12 @@ $app->put('/items/{uid}', function (Request $request, Response $response, $args)
         // item updated successfully
         $res["error"] = false;
         $res["message"] = "Item updated successfully";
+        $res["parameters"] = array();
     } else {
         // item failed to update
         $res["error"] = true;
         $res["message"] = "Failed to update item. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
@@ -834,25 +891,16 @@ $app->put('/items/{uid}', function (Request $request, Response $response, $args)
 
 /**
  *  Deleting item. Users can delete only their look items.
- *  url - /items/{uid}
+ *  url - /items/{look_uid}/{uid}
  *  method - DELETE
- *  params - look_uid
  */
-$app->delete('/items/{uid}', function (Request $request, Response $response, $args) {
+$app->delete('/items/{look_uid}/{uid}', function (Request $request, Response $response, $args) {
     $ret = authenticate($response);
     if ($ret != NULL) {
         return $ret;
     }
 
-    // check for required params
-    $ret = verifyRequiredParams(array('look_uid'), $request, $response);
-    if ($ret != NULL) {
-        return $ret;
-    }
-
-    // reading post params
-    $look_uid = $request->getParam('look_uid');
-
+    $look_uid = $args["look_uid"];
     $item_uid = $args["uid"];
     $res = array();
     $db = new DbHandler();
@@ -864,10 +912,12 @@ $app->delete('/items/{uid}', function (Request $request, Response $response, $ar
         // item deleted successfully
         $res["error"] = false;
         $res["message"] = "Item deleted successfully";
+        $res["parameters"] = array();
     } else {
         // item failed to delete
         $res["error"] = true;
         $res["message"] = "Failed to delete item. Please try again.";
+        $res["parameters"] = array();
     }
 
     return echoResponse(200, $res, $response);
